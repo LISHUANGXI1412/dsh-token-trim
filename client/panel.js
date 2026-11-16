@@ -370,7 +370,7 @@ window.__ModuleLoader__.load({
             meta(rt ? t('eq') + ' +' + pct(rt.totalPct) + ' − ' + reworkPct.toFixed(2) + '%' : ''),
             rt ? meta(t('sample') + ' ' + rt.sessions + ' · ' + t('aligned') + ' ' + rt.aligned + '/' + rt.events) : null,
             rt && rt.legacy ? meta(rt.legacy + ' ' + t('legacy')) : null,
-            replay.policy ? meta(t('policy') + ' ' + replay.policy.thresholdRatio + ' / ' + replay.policy.retainRatio) : null,
+            rt && replay.policy ? meta(t('policy') + ' ' + replay.policy.thresholdRatio + ' / ' + replay.policy.retainRatio) : null,
             rt && data && data.records !== replayMeta.current.records && !replayBusy ? meta(t('stale')) : null),
           h('div', { className: 'tg_note' },
             rt

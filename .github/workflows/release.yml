@@ -35,6 +35,7 @@ jobs:
           node test/run.mjs
           node test/cross-agent.mjs
           node test/replay.mjs
+          node tools/panel-smoke.mjs
           npm.cmd pack --dry-run
 
       - name: Publish to npm
