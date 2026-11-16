@@ -19,6 +19,7 @@ window.__ModuleLoader__.load({
       sample: 'samples',
       aligned: 'aligned',
       legacy: 'legacy rows (no session id)',
+      stale: 'new rewrites pending · auto-refresh within 60s',
       policy: 'policy',
       modelTitle: 'fixed model (historical)',
       modelNote: 'Config-level replay from 2026-11-15: compaction −31% × rules −15% ≈ −41%. Kept for comparison; trust the measured number above.',
@@ -69,6 +70,7 @@ window.__ModuleLoader__.load({
       sample: '样本',
       aligned: '已对齐',
       legacy: '条无会话 id（不计价）',
+      stale: '有新改写待计入 · 60 秒内自动更新',
       policy: '策略',
       modelTitle: '固定模型（历史口径）',
       modelNote: '2026-11-15 的语料级回放：压缩 −31% × 规则 −15% ≈ −41%。保留作对照，以上面的实测为准。',
@@ -282,7 +284,6 @@ window.__ModuleLoader__.load({
       const [status, setStatus] = React.useState(null)
       const [auto, setAuto] = React.useState(true)
       const [updatedAt, setUpdatedAt] = React.useState(0)
-      const lastRecords = React.useRef(-1)
 
       const load = React.useCallback(function (force, silent) {
         if (!silent) setBusy(true)
@@ -329,14 +330,19 @@ window.__ModuleLoader__.load({
         }
       }, [auto, load])
 
-      // 每次出现新的改写（manifest 行数变化）就自动跑一次实测回放；解析结果有缓存。
+      // 回放很贵（解压日志在 worker 里也要 2–5 秒）：首次进入自动跑一次，之后最多 60 秒一次，
+      // 且同一条改写批次不重复跑。忙碌时跳过，避免排队。
+      const replayMeta = React.useRef({ at: 0, records: -1 })
       React.useEffect(function () {
-        if (!data) return
+        if (!data || !auto || replayBusy) return
         const records = data.records || 0
-        if (records === lastRecords.current) return
-        lastRecords.current = records
-        if (auto || !replay) runReplay(true)
-      }, [data, auto, replay, runReplay])
+        const first = replay === null
+        const changed = records !== replayMeta.current.records
+        const elapsed = Date.now() - replayMeta.current.at
+        if (!first && !(changed && elapsed > 60000)) return
+        replayMeta.current = { at: Date.now(), records }
+        runReplay(true)
+      }, [data, auto, replay, replayBusy, runReplay])
 
       const model = data ? viewModel(data, focus, days) : null
       const rows = []
@@ -364,7 +370,8 @@ window.__ModuleLoader__.load({
             meta(rt ? t('eq') + ' +' + pct(rt.totalPct) + ' − ' + reworkPct.toFixed(2) + '%' : ''),
             rt ? meta(t('sample') + ' ' + rt.sessions + ' · ' + t('aligned') + ' ' + rt.aligned + '/' + rt.events) : null,
             rt && rt.legacy ? meta(rt.legacy + ' ' + t('legacy')) : null,
-            replay.policy ? meta(t('policy') + ' ' + replay.policy.thresholdRatio + ' / ' + replay.policy.retainRatio) : null),
+            replay.policy ? meta(t('policy') + ' ' + replay.policy.thresholdRatio + ' / ' + replay.policy.retainRatio) : null,
+            rt && data && data.records !== replayMeta.current.records && !replayBusy ? meta(t('stale')) : null),
           h('div', { className: 'tg_note' },
             rt
               ? '反事实回放：压缩按当前策略 vs 出厂 0.8/0.16；工具治理按每条改写结果的实际存活步数计费。'
