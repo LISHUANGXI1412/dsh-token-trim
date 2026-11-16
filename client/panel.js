@@ -11,7 +11,8 @@ window.__ModuleLoader__.load({
       label: 'Savings',
       title: 'Savings',
       subtitle: 'Measured from real session logs: compaction tuning + tool-result trimming, minus rework.',
-      liveTitle: 'Bill saved (measured)',
+      liveTitle: 'Bill saved (measured, net)',
+      eq: 'net =',
       compaction: 'compaction tuning',
       rules: 'tool trimming',
       rework: 'suspected rework',
@@ -60,7 +61,8 @@ window.__ModuleLoader__.load({
       label: '节省',
       title: '账单节省',
       subtitle: '来自真实会话日志：压缩阈值调优 + 工具结果治理，再扣掉返工。',
-      liveTitle: '账单节省（实测）',
+      liveTitle: '账单净节省（实测）',
+      eq: '即',
       compaction: '压缩阈值调优',
       rules: '工具治理',
       rework: '疑似返工',
@@ -347,22 +349,22 @@ window.__ModuleLoader__.load({
         const rt = replay && replay.totals ? replay.totals : null
         const netModel = bill && Number.isFinite(bill.netPct) ? bill.netPct : 41.3
         const reworkPct = bill && bill.rework && Number.isFinite(bill.rework.pctOfBaseline) ? bill.rework.pctOfBaseline : 0
+        const netMeasured = rt ? rt.totalPct - reworkPct : 0
 
-        // 1) 实测总节省（压缩阈值 + 工具治理），放首位
+        // 1) 实测净节省（压缩阈值 + 工具治理 − 疑似返工），放首位
         rows.push(h('div', { className: 'tg_card' },
           h('div', { className: 'tg_hero' },
-            h('span', { className: 'tg_big' }, rt ? '−' + pct(rt.totalPct) : '—'),
+            h('span', { className: 'tg_big' }, rt ? '−' + pct(netMeasured) : '—'),
             h('span', { className: 'tg_meta' }, t('liveTitle'))),
           h('div', { className: 'tg_row' },
             meta(rt ? t('compaction') + ' +' + pct(rt.compactionPct) : t('compaction') + ' …'),
             meta(rt ? t('rules') + ' +' + pct(rt.rulePct) : t('rules') + ' …'),
-            meta(rt ? t('rework') + ' −' + reworkPct.toFixed(2) + '%' : t('rework') + ' …')),
-          rt
-            ? h('div', { className: 'tg_row' },
-                meta(t('sample') + ' ' + rt.sessions + ' · ' + t('aligned') + ' ' + rt.aligned + '/' + rt.events),
-                rt.legacy ? meta(rt.legacy + ' ' + t('legacy')) : null,
-                replay.policy ? meta(t('policy') + ' ' + replay.policy.thresholdRatio + ' / ' + replay.policy.retainRatio) : null)
-            : meta(t('replayBusy')),
+            meta(t('rework') + ' −' + reworkPct.toFixed(2) + '%')),
+          h('div', { className: 'tg_row' },
+            meta(rt ? t('eq') + ' +' + pct(rt.totalPct) + ' − ' + reworkPct.toFixed(2) + '%' : ''),
+            rt ? meta(t('sample') + ' ' + rt.sessions + ' · ' + t('aligned') + ' ' + rt.aligned + '/' + rt.events) : null,
+            rt && rt.legacy ? meta(rt.legacy + ' ' + t('legacy')) : null,
+            replay.policy ? meta(t('policy') + ' ' + replay.policy.thresholdRatio + ' / ' + replay.policy.retainRatio) : null),
           h('div', { className: 'tg_note' },
             rt
               ? '反事实回放：压缩按当前策略 vs 出厂 0.8/0.16；工具治理按每条改写结果的实际存活步数计费。'
