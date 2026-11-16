@@ -52,6 +52,11 @@ Read those two numbers carefully:
   measured by replaying 1,518 real tool results), minus rework. It is a replay estimate, not an invoice.
 - The Savings tab shows the same split: gross, suspected-rework deduction, net — so you can see when the
   plugin starts to hurt instead of help.
+- **Measured replay (button in the tab).** Reads the real session logs and charges each rewrite once at the
+  miss price and once per later request until the next compaction — a counterfactual bill. On the author's
+  current session that measured **−7.8%** of that session's bill (34 aligned rewrites); the −41.4% figure is
+  the config-level model, which also includes compaction tuning. Both are shown, and the model number is
+  labelled as a model. Rewrites from before session ids existed are counted but not priced.
 
 ## Safety model
 

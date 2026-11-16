@@ -33,7 +33,8 @@
     "cordis.patch.yml",
     "icon.svg",
     "README.md",
-    "LICENSE"
+    "LICENSE",
+    "vendor/"
   ],
   "exports": {
     ".": "./index.js",

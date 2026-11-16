@@ -18,13 +18,16 @@ window.__ModuleLoader__.load({
       days30: '30 days',
       refresh: 'Refresh',
       busy: 'Loading…',
+      auto: 'Live',
+      paused: 'Paused',
+      updated: 'updated',
       error: 'Error',
       events: 'results rewritten',
       chars: 'characters',
       saved: 'saved',
       tokens: 'est. tokens',
       denom: 'The percentage below is measured only over the tool results token-trim actually rewrote. Small results, the system prompt, and reasoning are outside the hook.',
-      billNote: 'Bill-level estimate (offline replay, 2026-11-15): compaction tuning ≈ −31%, this rule layer ≈ −15%, multiplied ≈ −41%. Modelled, no rework cost.',
+      billNote: 'Bill-level estimate (offline replay, 2026-11-15): compaction tuning ≈ −31%, this rule layer ≈ −15%, multiplied ≈ −41%. A fixed model — the live numbers are the event and character counts below.',
       billTitle: 'Bill saved (estimate)',
       netTitle: 'Bill saved (net estimate)',
       gross: 'gross',
@@ -45,6 +48,16 @@ window.__ModuleLoader__.load({
       billCost: 'cost (hit-equivalents)',
       billUnavailable: 'No measured bill yet — install dsh-context-kit so its session-log cache exists, then this card fills itself.',
       billUpdated: 'cache updated',
+      replayBtn: 'Measured replay',
+      replayBusy: 'Replaying…',
+      replayTitle: 'Measured from session logs',
+      replaySaved: 'of the bill (counterfactual)',
+      replaySessions: 'sessions',
+      replayAligned: 'aligned rewrites',
+      replayLegacy: 'legacy (unsessioned)',
+      replayCost: 'current bill',
+      replayCounterfactual: 'without trimming',
+      replayNote: 'Reads the real session logs: each rewritten result is charged once as a miss and then once per later request until the next compaction. Only rewrites with a session id can be aligned; legacy rows are counted but not priced.',
       pluginsTitle: 'This plugin, measured',
       tools: 'By tool',
       sessions: 'By session',
@@ -74,13 +87,16 @@ window.__ModuleLoader__.load({
       days30: '30 天',
       refresh: '刷新',
       busy: '读取中…',
+      auto: '实时',
+      paused: '已暂停',
+      updated: '更新于',
       error: '出错',
       events: '条结果被改写',
       chars: '字符',
       saved: '省下',
       tokens: '约合 token',
       denom: '下面的百分比，分母只是「token-trim 实际改写过的工具结果」。小结果、系统提示、推理都不在钩子里。',
-      billNote: '账单级估算（离线回放，2026-11-15）：压缩阈值调优约 −31%，本规则层约 −15%，相乘约 −41%。是模型，未扣返工。',
+      billNote: '账单级估算（离线回放，2026-11-15）：压缩阈值调优约 −31%，本规则层约 −15%，相乘约 −41%。这是固定模型——实时变化的是下面的事件与字符统计。',
       billTitle: '账单节省（估算）',
       netTitle: '账单净节省（估算）',
       gross: '毛节省',
@@ -101,6 +117,16 @@ window.__ModuleLoader__.load({
       billCost: '成本（命中当量）',
       billUnavailable: '还没有实测账单 —— 装上 dsh-context-kit 生成会话日志缓存后，这张卡会自动填上。',
       billUpdated: '缓存更新于',
+      replayBtn: '实测回放',
+      replayBusy: '回放中…',
+      replayTitle: '会话日志实测',
+      replaySaved: '账单占比（反事实）',
+      replaySessions: '个会话',
+      replayAligned: '条已对齐',
+      replayLegacy: '条无会话 id',
+      replayCost: '当前账单',
+      replayCounterfactual: '未治理时',
+      replayNote: '读真实会话日志：每条被改写的结果先按一次未命中计费，之后每个仍包含它的请求按命中计费，直到下一次压缩。只有带 session id 的改写能对齐；legacy 行只计数、不计价。',
       pluginsTitle: '本插件实测',
       tools: '按工具',
       sessions: '按会话',
@@ -223,6 +249,7 @@ window.__ModuleLoader__.load({
         report: () => call('report', {}),
         status: () => call('status', {}),
         bill: () => call('bill', {}),
+        replay: () => call('replay', {}),
       }
     }
 
@@ -287,17 +314,53 @@ window.__ModuleLoader__.load({
       const [busy, setBusy] = React.useState(false)
       const [error, setError] = React.useState('')
       const [status, setStatus] = React.useState(null)
+      const [auto, setAuto] = React.useState(true)
+      const [updatedAt, setUpdatedAt] = React.useState(0)
+      const [replay, setReplay] = React.useState(null)
+      const [replayBusy, setReplayBusy] = React.useState(false)
 
-      const load = React.useCallback(function (force) {
-        setBusy(true)
+      const load = React.useCallback(function (force, silent) {
+        if (!silent) setBusy(true)
         setError('')
         return Promise.all([loadReport(api, force), api.status().catch(function () { return null }), api.bill().catch(function () { return null })])
-          .then(function (results) { setData(results[0]); if (results[1]) setStatus(results[1]); if (results[2]) setBill(results[2]) })
+          .then(function (results) {
+            setData(results[0])
+            if (results[1]) setStatus(results[1])
+            if (results[2]) setBill(results[2])
+            setUpdatedAt(Date.now())
+          })
           .catch(function (cause) { setError(String(cause && cause.message ? cause.message : cause)) })
-          .then(function () { setBusy(false) })
+          .then(function () { if (!silent) setBusy(false) })
       }, [api])
 
-      React.useEffect(function () { load(false) }, [load])
+      React.useEffect(function () { load(false, false) }, [load])
+
+      // 实时刷新：视图可见时每 5 秒静默重读（不闪 loading）；切回页面立即补一次。
+      React.useEffect(function () {
+        if (!auto) return undefined
+        const tick = function () {
+          if (typeof document !== 'undefined' && document.hidden) return
+          load(true, true).catch(function () {})
+        }
+        const timer = setInterval(tick, 5000)
+        const onVisible = function () {
+          if (typeof document !== 'undefined' && !document.hidden) load(true, true).catch(function () {})
+        }
+        if (typeof document !== 'undefined') document.addEventListener('visibilitychange', onVisible)
+        return function () {
+          clearInterval(timer)
+          if (typeof document !== 'undefined') document.removeEventListener('visibilitychange', onVisible)
+        }
+      }, [auto, load])
+
+      const runReplay = React.useCallback(function () {
+        setReplayBusy(true)
+        setError('')
+        return api.replay()
+          .then(function (value) { setReplay(value) })
+          .catch(function (cause) { setError(String(cause && cause.message ? cause.message : cause)) })
+          .then(function () { setReplayBusy(false) })
+      }, [api])
 
       const model = data ? viewModel(data, focus, days) : null
       const rows = []
@@ -358,7 +421,25 @@ window.__ModuleLoader__.load({
             bill.totals ? meta(t('reworkDuplicates') + ' ' + fmtBig(bill.totals.duplicates) + ' / ' + fmtBig(bill.totals.distinctCalls)) : null))
         }
 
-        // 4) 本插件实测（字符口径）
+        // 4) 会话日志实测（反事实回放，按需）
+        if (replay && replay.totals) {
+          const rt = replay.totals
+          rows.push(h('div', { className: 'tg_card' },
+            h('div', { className: 'tg_cardhead' }, h('strong', null, t('replayTitle'))),
+            h('div', { className: 'tg_row' },
+              h('span', { className: 'tg_big' }, '−' + Number(rt.savedPct || 0).toFixed(2) + '%'),
+              meta(t('replaySaved'))),
+            h('div', { className: 'tg_row' },
+              meta(rt.sessions + ' ' + t('replaySessions')),
+              meta(t('replayAligned') + ' ' + rt.aligned + '/' + rt.events),
+              meta(t('replayLegacy') + ' ' + (rt.legacy || 0))),
+            h('div', { className: 'tg_row' },
+              meta(t('replayCost') + ' ' + fmtBig(rt.costCurrent)),
+              meta(t('replayCounterfactual') + ' ' + fmtBig(rt.baselineCost))),
+            h('div', { className: 'tg_note' }, t('replayNote'))))
+        }
+
+        // 5) 本插件实测（字符口径）
         rows.push(h('div', { className: 'tg_card' },
           h('div', { className: 'tg_cardhead' }, h('strong', null, t('pluginsTitle'))),
           h('div', { className: 'tg_row' },
@@ -433,8 +514,16 @@ window.__ModuleLoader__.load({
           h('p', null, t('subtitle'))),
         h('div', { className: 'tg_row' },
           h(Seg, { t: t, value: days, onChange: setDays }),
-          h('button', { className: 'tg_btn', type: 'button', disabled: busy, onClick: function () { return load(true) } },
-            busy ? t('busy') : t('refresh'))),
+          h('button', { className: 'tg_btn', type: 'button', disabled: busy, onClick: function () { return load(true, false) } },
+            busy ? t('busy') : t('refresh')),
+          h('button', { className: 'tg_btn', type: 'button', disabled: replayBusy, onClick: runReplay },
+            replayBusy ? t('replayBusy') : t('replayBtn')),
+          h('button', {
+            className: 'tg_btn',
+            type: 'button',
+            onClick: function () { setAuto(function (value) { return !value }) },
+          }, auto ? t('auto') : t('paused')),
+          updatedAt ? h('span', { className: 'tg_meta' }, t('updated') + ' ' + new Date(updatedAt).toLocaleTimeString()) : null),
         ...rows)
     }
 
