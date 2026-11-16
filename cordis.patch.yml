@@ -1,0 +1,23 @@
+# dsh-token-trim: 一个包两个 Host 入口 + 一个会话视图（视图由 package.json 的 dsh.client 声明）。
+# - token-trim：工具结果进上下文前的确定性治理（摘要 / 截断 / 重跑差异 / 原文落盘 / guard_query 取回）
+# - token-trim-index：上下文索引（在 system prompt 里给一段「有什么、在哪」的指针）
+- insert:
+    - id: token-trim
+      name: dsh-token-trim
+      config:
+        enabled: true
+        dryRun: false
+        minChars: 2000
+        maxFetches: 2
+    - id: token-trim-index
+      name: dsh-token-trim/index-host
+      config:
+        enabled: true
+        injectMode: section
+        sectionName: index:index-page
+        sectionOrder: 10500
+        maxTokens: 1000
+        pathLimit: 40
+        artifactLimit: 20
+        targetChars: 48
+        manifestLines: 500

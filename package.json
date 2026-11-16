@@ -1,0 +1,64 @@
+{
+  "name": "dsh-token-trim",
+  "version": "0.1.0",
+  "description": "Tool-result trimmer for DeepSeek Harness: structural summaries, head/tail truncation, repeat deltas and artifact spill before results enter the context — plus a context index and a measured savings view.",
+  "type": "module",
+  "main": "index.js",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/LISHUANGXI1412/dsh-token-trim.git"
+  },
+  "homepage": "https://github.com/LISHUANGXI1412/dsh-token-trim#readme",
+  "bugs": {
+    "url": "https://github.com/LISHUANGXI1412/dsh-token-trim/issues"
+  },
+  "keywords": [
+    "dsh",
+    "dsh-plugin",
+    "deepseek-harness",
+    "context",
+    "tokens",
+    "compaction",
+    "tool-output"
+  ],
+  "engines": {
+    "node": ">=22"
+  },
+  "files": [
+    "index.js",
+    "index-host.js",
+    "lib/",
+    "client/",
+    "cordis.patch.yml",
+    "icon.svg",
+    "README.md",
+    "LICENSE"
+  ],
+  "exports": {
+    ".": "./index.js",
+    "./index-host": "./index-host.js",
+    "./client": "./client/panel.js",
+    "./icon": "./icon.svg"
+  },
+  "scripts": {
+    "test": "node test/run.mjs"
+  },
+  "dependencies": {
+    "@deepseek-ai/dsh-typert-protocol": "0.2.1-rc.2"
+  },
+  "dsh": {
+    "bundle": {
+      "patch": "./cordis.patch.yml"
+    },
+    "client": {
+      "platform": "web",
+      "inject": [
+        "@deepseek-ai/dsh-client-runtime",
+        "@deepseek-ai/dsh-client-ui-slots",
+        "@deepseek-ai/dsh-client-ui-settings",
+        "@deepseek-ai/dsh-client-connection"
+      ]
+    }
+  }
+}
