@@ -1,6 +1,6 @@
 {
   "name": "dsh-token-trim",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Tool-result trimmer for DeepSeek Harness: structural summaries, head/tail truncation, repeat deltas and artifact spill before results enter the context — plus a context index and a measured savings view.",
   "type": "module",
   "main": "index.js",
