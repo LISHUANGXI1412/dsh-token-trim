@@ -36,6 +36,7 @@ jobs:
           node test/cross-agent.mjs
           node test/replay.mjs
           node test/rework.mjs
+          node test/policy.mjs
           node tools/panel-smoke.mjs
           npm.cmd pack --dry-run
 
