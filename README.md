@@ -59,6 +59,22 @@ Read those two numbers carefully:
   is the older corpus-level model kept as a comparison. Rewrites from before session ids existed are counted
   but not priced, and the tab says so.
 
+### How rework is counted (revised 2026-11-17)
+
+An earlier version paired rewrites by `tool + target` only, which counted two edits to the same file or a
+`read` with `offset/limit` as rework. Measured against 7 days of session logs (8,528 tool calls), that rule
+flagged 3,431 pairs of which only **48** had identical arguments. The estimator now records an argument
+fingerprint and splits the signal:
+
+| signal | rule | effect on the number |
+| --- | --- | --- |
+| **confirmed rerun** | same session + tool + target + identical arguments, within 30 min | deducted |
+| **likely follow-up** | same target, different arguments, previous result was truncated/summarized, within 5 min | shown, **not** deducted |
+| legacy rows (no fingerprint) | old rule, flagged as `legacy` | deducted, marked |
+
+Deduction is still `count × average step cost` — an honest approximation, not a measurement of the extra step.
+The sample sizes are visible in the tab, so you can judge them yourself.
+
 ### How the defaults were tuned (2026-11-17)
 
 `tools/optimize-report.mjs` replays **8,551 real tool results from 7 days** (9.11M characters observed)

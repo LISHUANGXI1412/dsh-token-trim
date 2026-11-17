@@ -261,6 +261,19 @@ export function apply(ctx, config = {}) {
       if (!original || original.length < cfg.minChars) return next()
 
       const argsKey = String(typeof exec?.arguments === 'string' ? exec.arguments : JSON.stringify(exec?.arguments ?? ''))
+      // 返工统计需要区分「同一参数重跑」和「改了参数继续读」：把参数指纹与形状写进 manifest。
+      // 旧记录没有这两个字段，report.cjs 会退回旧口径并标记 legacy。
+      const argsHash = sha16(argsKey)
+      const argShape = (() => {
+        try {
+          const parsed = typeof exec?.arguments === 'string' ? JSON.parse(exec.arguments) : exec?.arguments
+          if (!parsed || typeof parsed !== 'object') return 'none'
+          const ranged = ['offset', 'limit', 'fromLine', 'toLine', 'startLine', 'endLine'].filter((k) => parsed[k] != null)
+          return ranged.length ? ranged.join('+') : 'plain'
+        } catch {
+          return 'unparsed'
+        }
+      })()
       // 关键：delta/未变状态必须按 agent 隔离。
       // 2026-11-14 实测 bug：这个 Map 曾经是全局的，于是子 agent 会对一个它从没读过的文件
       // 收到「[未变 · 与 #N 相同]」，而 #N 的原文只存在于父 agent 的上下文里 → 静默丢信息。
@@ -305,7 +318,7 @@ export function apply(ctx, config = {}) {
       }
 
       if (cfg.dryRun) {
-        await record({ ts: Date.now(), session: agentKey, tool: toolName, id, mode, originalChars: original.length, visibleChars: visible.length, dryRun: true, target: targetOf(exec) })
+        await record({ ts: Date.now(), session: agentKey, tool: toolName, id, mode, originalChars: original.length, visibleChars: visible.length, dryRun: true, target: targetOf(exec), argsHash, argShape })
         remember(key, { text: base, ref: `#${exec?.callId ?? id}` })
         return next()
       }
@@ -316,7 +329,7 @@ export function apply(ctx, config = {}) {
       await writeFile(file, original, 'utf8')
 
       remember(key, { text: base, ref: `#${exec?.callId ?? id}` })
-      await record({ ts: Date.now(), session: agentKey, tool: toolName, id, mode, originalChars: original.length, visibleChars: visible.length, artifact: file, target: targetOf(exec) })
+      await record({ ts: Date.now(), session: agentKey, tool: toolName, id, mode, originalChars: original.length, visibleChars: visible.length, artifact: file, target: targetOf(exec), argsHash, argShape })
 
       return { kind: 'accept', content: [{ type: 'text', text: visible }] }
     } catch {
