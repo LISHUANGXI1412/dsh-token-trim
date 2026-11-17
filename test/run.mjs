@@ -186,6 +186,23 @@ test('guard_query 未命中时给出明确说明', async (h) => {
   assert.ok(out.includes('未命中'), out.slice(0, 80))
 })
 
+test('未列出的工具走 capsDefault 兜底', async (h) => {
+  const original = Array.from({ length: 400 }, (_, i) => `row ${i} ` + 'x'.repeat(40)).join('\n')
+  assert.ok(original.length > 6000)
+  const r = await run(h, { name: 'some_mcp__tool', callId: 'u1', arguments: '{"q":1}' }, text(original))
+  const out = r.content[0].text
+  assert.ok(out.length < original.length, 'uncapped: ' + out.length)
+  assert.ok(out.length < 6000 + 800, 'cap exceeded: ' + out.length)
+})
+
+test('显式 caps 0 的工具不截（read / guard_query）', async (h) => {
+  const original = Array.from({ length: 400 }, (_, i) => `line ${i} ` + 'y'.repeat(40)).join('\n')
+  for (const tool of ['read', 'guard_query']) {
+    const r = await run(h, { name: tool, callId: 'zero-' + tool, arguments: '{"file_path":"a"}' }, text(original))
+    assert.equal(r.content[0].text, original, tool + ' was modified')
+  }
+})
+
 let passed = 0
 const failures = []
 for (const c of cases) {

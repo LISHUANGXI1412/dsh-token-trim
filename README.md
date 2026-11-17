@@ -29,7 +29,7 @@ Restart DSH. You get:
 | **unchanged pointer** | same as above | sends `[unchanged · same as #N · artifact <id>]` |
 
 Everything else is left alone: `edit`, `write`, `todo`, sub-agent messages, images, multi-block results,
-reasoning, and any result under `minChars` (default 2000).
+reasoning, and any result under `minChars` (default 1200).
 
 ## Measured on the author's machine
 
@@ -58,6 +58,26 @@ Read those two numbers carefully:
   author's session this came out at **−30.6% compaction + −5.3% trimming ≈ −35.8% net**; the −41.3% figure
   is the older corpus-level model kept as a comparison. Rewrites from before session ids existed are counted
   but not priced, and the tab says so.
+
+### How the defaults were tuned (2026-11-17)
+
+`tools/optimize-report.mjs` replays **8,551 real tool results from 7 days** (9.11M characters observed)
+through the actual rule engine under different configs, and prices each rewrite by how many later requests
+would still carry it:
+
+| config | results rewritten | chars saved | bill impact | vs previous |
+| --- | --- | --- | --- | --- |
+| previous defaults (`minChars 2000`, `pwsh 4000`, whitelist only) | 265 | 1.13M | 90M | — |
+| `minChars 1200` | 290 | 1.16M | 93M | +3% |
+| + `pwsh 2500`, `inspect 8000` | 453 | 1.58M | 119M | +32% |
+| + MCP tools get capped (`proxy_run 4000`) | 480 | 1.98M | 136M | +51% |
+| **shipped in 0.2.0**: + `job_output 4000`, `grep 6000`, `capsDefault 6000` | 490 | 2.03M | 139M | **+55%** |
+| (rejected) `read` cap 6000 | 598 | 2.23M | 164M | +83% |
+
+The biggest miss was **MCP tools**: they were never in the whitelist, so 0.6M characters of proxy/command
+output went in untouched. `capsDefault` now caps any tool that is not listed. The `read` cap is the largest
+single remaining lever (+83%) and is still rejected: it previously caused re-reads that cost far more than
+it saved, and that failure mode is not visible in a character-count replay.
 
 ## Safety model
 
@@ -94,12 +114,16 @@ Patch row `token-trim` in the DSH profile:
   config:
     enabled: true
     dryRun: false       # record what would happen, rewrite nothing
-    minChars: 2000
+    minChars: 1200
+    capsDefault: 6000   # any tool not listed below
     maxFetches: 2
     caps:
-      pwsh: 4000
-      cordis_inspect_query: 12000
-      read: 0           # 0 disables a cap
+      pwsh: 2500
+      cordis_inspect_query: 8000
+      job_output: 4000
+      grep: 6000
+      'mcp__local-proxy__proxy_run': 4000
+      read: 0           # 0 disables a cap (content tools stay untouched)
 ```
 
 `dryRun: true` is the honest way to try it: the Savings tab fills up, the context does not change.

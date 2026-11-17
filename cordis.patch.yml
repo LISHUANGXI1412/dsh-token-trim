@@ -7,7 +7,8 @@
       config:
         enabled: true
         dryRun: false
-        minChars: 2000
+        minChars: 1200
+        capsDefault: 6000
         maxFetches: 2
     - id: token-trim-index
       name: dsh-token-trim/index-host

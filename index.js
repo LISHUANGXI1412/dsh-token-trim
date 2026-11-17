@@ -32,23 +32,32 @@ const BASE = resolveDataDir()
 const DEFAULTS = {
   enabled: true,
   dryRun: false,
-  minChars: 2000,
+  minChars: 1200,
+  // 未显式列出的工具（MCP、adb、flowscope…）用这个默认上限兜底。之前是"未知工具一律不截"，
+  // 2026-11-17 实测：7 天 8,551 条工具结果里，未覆盖的 MCP 工具占了 0.6M 字符且一条没截。
+  capsDefault: 6000,
   caps: {
-    pwsh: 4000,
-    cordis_inspect_query: 12000,
+    pwsh: 2500,
+    cordis_inspect_query: 8000,
     cordis_inspect_list: 8000,
-    plugin_manager: 8000,
-    job_output: 8000,
-    grep: 8000,
+    plugin_manager: 6000,
+    job_output: 4000,
+    grep: 6000,
     skill: 8000,
+    'mcp__local-proxy__proxy_run': 4000,
     cua_driver_native__get_window_state: 8000,
     cua_driver_native__list_windows: 8000,
-    // 内容类工具：默认不截（2026-10-29 实测回退）。
+    // 内容类工具：显式不截（2026-10-29 实测回退）。
     // 试过 8K：两轮真实会话里 2 条被截的 read 全部触发重读（agent 用 offset/limit 补尾部），
     //   省 2.3K token 却多花 2 步（约 5 万 token）→ 净亏。
     // 原因：read 的"内容"就是 agent 要的产物；截断等于让它返工。逻辑上更接近"去冗余"的工具才值得截。
     read: 0,
     web_fetch: 0,
+    // 改写/落盘类：结果就是 agent 的校验依据，别截。
+    edit: 0,
+    write: 0,
+    // 取原文的工具：它本身就是"要完整内容"的出口，截断会让 guard_query 失去意义。
+    guard_query: 0,
   },
   summaryTools: [
     'cordis_inspect_query',
@@ -241,8 +250,8 @@ export function apply(ctx, config = {}) {
       if (!cfg.enabled) return next()
       const toolName = exec?.name ?? exec?.tool?.name
       if (!toolName) return next()
-      const capLimit = cfg.caps[toolName]
-      const handlesCap = capLimit != null && capLimit > 0 // 0 / undefined = 不截
+      const capLimit = cfg.caps[toolName] ?? cfg.capsDefault
+      const handlesCap = capLimit != null && capLimit > 0 // 0 = 显式不截
       const handlesSummary = cfg.summaryTools.has(toolName)
       const handlesDelta = cfg.deltaTools.has(toolName)
       if (!handlesCap && !handlesSummary && !handlesDelta) return next()
