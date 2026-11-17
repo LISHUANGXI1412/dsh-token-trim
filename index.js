@@ -296,7 +296,7 @@ export function apply(ctx, config = {}) {
         const shape = T.detectShape(original)
         if (shape.shape === 'json' && shape.parsed) {
           const s = T.summarizeJson(shape.parsed, { truncated: shape.truncated })
-          const text = `[结构摘要 · 原文 ${original.length} 字符 / ${original.split('\n').length} 行 · 全文 artifact ${id} · 用 guard_query(id, pattern) 取回细节（最多 ${cfg.maxFetches} 次，超过给全文）${shape.truncated ? ' · 原文已被上游截断' : ''}]\n${JSON.stringify(s, null, 1)}`
+          const text = `[结构摘要 · 原文 ${original.length} 字符 / ${original.split('\n').length} 行 · 全文 artifact ${id} · guard_query(id, pattern) 检索命中行，或 guard_query(id, fromLine, toLine) 取行区间（最多 ${cfg.maxFetches} 次，超过给全文）${shape.truncated ? ' · 原文已被上游截断' : ''}]\n${JSON.stringify(s, null, 1)}`
           if (text.length < base.length) { base = text; kind = 'summary' }
         }
       }
