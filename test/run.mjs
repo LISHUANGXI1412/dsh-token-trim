@@ -178,6 +178,28 @@ test('回归：dryRun 在目录不存在时也能记账', async (h) => {
   assert.ok(JSON.parse(line).dryRun, '记录应标记 dryRun')
 })
 
+test('guard_query 按行区间取回（截断 read 的安全通道）', async (h) => {
+  const original = Array.from({ length: 600 }, (_, i) => `line ${i + 1} payload`).join('\n')
+  const r = await run(h, { name: 'pwsh', callId: 'range1', arguments: '{"command":"range1"}' }, text(original))
+  const id = r.content[0].text.match(/artifact ([0-9a-f]+)/)[1]
+  const slice = await lastTool.execute({ id, fromLine: 200, toLine: 203 })
+  assert.ok(slice.includes('第 200-203 行'), slice.slice(0, 100))
+  assert.ok(slice.includes('200: line 200 payload'), 'first line: ' + slice.slice(0, 200))
+  assert.ok(slice.includes('203: line 203 payload'), 'last line: ' + slice.slice(-200))
+  assert.ok(!slice.includes('204: line 204 payload'), 'should not leak past toLine')
+  const single = await lastTool.execute({ id, fromLine: 42 })
+  assert.ok(single.includes('42: line 42 payload'), single.slice(0, 120))
+})
+
+test('区间越界时夹到文件范围，并回显总行数', async (h) => {
+  const original = Array.from({ length: 90 }, (_, i) => `row ${i + 1} ` + 'p'.repeat(40)).join('\n')
+  const r = await run(h, { name: 'pwsh', callId: 'range2', arguments: '{"command":"range2"}' }, text(original))
+  const id = r.content[0].text.match(/artifact ([0-9a-f]+)/)[1]
+  const out = await lastTool.execute({ id, fromLine: 80, toLine: 9999 })
+  assert.ok(out.includes('共 90 行'), out.slice(0, 120))
+  assert.ok(out.includes('90: row 90'), out.slice(-120))
+})
+
 test('guard_query 未命中时给出明确说明', async (h) => {
   const original = Array.from({ length: 400 }, (_, i) => `line ${i} ` + 'm'.repeat(30)).join('\n')
   const r = await run(h, { name: 'pwsh', callId: 'q2', arguments: '{"command":"q2"}' }, text(original))

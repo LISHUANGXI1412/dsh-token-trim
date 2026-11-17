@@ -102,7 +102,11 @@ it saved, and that failure mode is not visible in a character-count replay.
 2. **Single text block only.** Images, structured values and multi-block results are never rewritten.
 3. **Originals are always written first**, to `~/.dsh/token-trim/artifacts/<sha16>.txt`, and the replacement
    carries that id.
-4. **`guard_query(id, pattern)`** searches inside the original (substring or `/regex/`, with context lines).
+4. **`guard_query`** reads inside the original, in two modes:
+   - `pattern` — substring or `/regex/`, with context lines;
+   - `fromLine` / `toLine` — an exact line range (1-based, inclusive, ≤400 lines), so continuing a
+     truncated result costs one precise fetch instead of a full re-read.
+
    An artifact can be fetched **twice**; after that the tool returns the full text capped at 12K chars —
    because a third fetch costs more context than it saves.
 5. **Audit trail.** Every transformation appends one line to `~/.dsh/token-trim/manifest.jsonl`

@@ -175,17 +175,22 @@ export function apply(ctx, config = {}) {
   ctx.tools.register({
     name: 'guard_query',
     description:
-      'Search inside a token-trim artifact (the full original tool output that was summarized or truncated). ' +
-      'Artifact ids appear in tool results as "artifact <id>". Returns matching lines with line numbers and context.',
+      'Read inside a token-trim artifact (the full original tool output that was summarized or truncated). ' +
+      'Artifact ids appear in tool results as "artifact <id>". Two modes: ' +
+      '(a) pattern search — matching lines with line numbers and context; ' +
+      '(b) line range — pass fromLine/toLine (1-based, inclusive) to read an exact slice without a keyword. ' +
+      'Use the range mode to continue a truncated read instead of re-reading the whole file.',
     parameters: {
       type: 'object',
       properties: {
         id: { type: 'string', description: 'Artifact id (hex) shown in the tool result, or "last" for the most recent.' },
-        pattern: { type: 'string', description: 'Substring to search for, or /regex/ between slashes.' },
+        pattern: { type: 'string', description: 'Substring to search for, or /regex/ between slashes. Required unless fromLine/toLine is given.' },
+        fromLine: { type: 'number', description: 'First line to return (1-based, inclusive). Enables range mode.' },
+        toLine: { type: 'number', description: 'Last line to return (1-based, inclusive; defaults to fromLine).' },
         context: { type: 'number', description: 'Lines of context around each match (default 2, max 10).' },
         max: { type: 'number', description: 'Max matched lines to return (default 30).' },
       },
-      required: ['id', 'pattern'],
+      required: ['id'],
       additionalProperties: false,
     },
     output: { schema: { type: 'string' }, render: (_args, value) => [{ type: 'text', text: String(value) }] },
@@ -210,6 +215,8 @@ export function apply(ctx, config = {}) {
         dir: cfg.artifactDir,
         id: resolved,
         pattern: args?.pattern,
+        fromLine: args?.fromLine,
+        toLine: args?.toLine,
         context: args?.context,
         max: args?.max,
         attempt,
